@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Zibal Donate - حمایت مالی 
-Plugin URI: https://docs.zibal.ir/IPG/Samples
+Plugin URI: https://docs.zibal.ir/
 Description: افزونه حمایت مالی از وبسایت ها -- برای استفاده تنها کافی است کد زیر را درون بخشی از برگه یا نوشته خود قرار دهید  [ZibalDonate]
 Version: 1.0
 Author:  Yahya Kangi
@@ -10,7 +10,7 @@ Author URI: http://github.com/YahyaKng
 
 defined('ABSPATH') or die('Access denied!');
 define ('ZibalDonateDIR', plugin_dir_path( __FILE__ ));
-define ('TABLE_DONATE'  , 'zibal_donate');
+// define ('ZIBAL_DONATE_TABLE'  , 'zibal_donate');
 
 require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -127,7 +127,7 @@ function ZibalDonateForm() {
       } 
       else 
       {
-        $error .= ZD_GetResaultStatusString($result['Status']) . "<br>\r\n";
+        $error .= ZD_GetRequestResults($result['status']) . "<br>\r\n";
       }
     }
   }
@@ -147,19 +147,31 @@ function ZibalDonateForm() {
       $verifyResult = post_to_zibal('v1/verify', $verifyData);
       $verifyResult = (array) $verifyResult;
 
-      if( isset($verifyResult['status']) && $verifyResult['status'] != 1)
-      {
-        $error .= 'تراکنش تایید نشد' . "<br>\r\n";
-        $error .= get_option( 'ZD_IsError') . "<br>\r\n";
-        $error .= ZD_GetResaultStatusString($verifyResult['status']) . "<br>\r\n";
-      }
-      else
+      if( isset($verifyResult['result']) && $verifyResult['result'] == 100 )
       {
         $message .= get_option( 'ZD_IsOk') . "<br>\r\n";
         $message .= 'شناسه مرجع تراکنش:'. $verifyResult['refNumber'] . "<br>\r\n";
         
         $ZD_TotalAmount = get_option("ZD_TotalAmount");
         update_option("ZD_TotalAmount" , $ZD_TotalAmount + $verifyResult['amount']);
+      }
+      // elseif( isset($verifyResult['result']) && $verifyResult['result'] != 100)
+      // {
+      //   $error .= 'تراکنش تایید نشد' . "<br>\r\n";
+      //   $error .= get_option( 'ZD_IsError') . "<br>\r\n";
+      //   $error .= ZD_GetVerfityStatus($verifyResult['status']) . "<br>\r\n";
+      // }
+      elseif( isset($verifyResult['result']) && $verifyResult['result'] == 201 )
+      {
+        $error .= 'تراکنش قبلا تایید شده بود.' . "<br>\r\n";
+        $error .= get_option( 'ZD_IsError') . "<br>\r\n";
+        $error .= ZD_GetRequestResults($verifyResult['result']) . "<br>\r\n";
+      }
+      else 
+      {
+        $error .= 'تراکنش تایید نشد' . "<br>\r\n";
+        $error .= get_option( 'ZD_IsError') . "<br>\r\n";
+        $error .= ZD_GetVerfityStatus($verifyResult['status']) . "<br>\r\n";
       }
     } 
     else
@@ -351,32 +363,63 @@ input.ZD_Submit {
   add_option("ZD_UseCustomStyle", 'false', '', 'yes');
 }
 
-function ZD_GetResaultStatusString($StatusNumber)
+function ZD_GetRequestResults($resultNumber)
 {
-  switch($StatusNumber)
+  switch($resultNumber)
+  {
+    case 100:
+      return 'با موفقیت تایید شد.';
+    case 102:
+      return 'merchant یافت نشد.';
+    case 103:
+      return 'merchant غیرفعال';
+    case 104:
+      return 'merchant نامعتبر';
+    case 201:
+      return 'قبلا تایید شده.';
+    case 105:
+      return 'amount بایستی بزرگتر از 1,000 ریال باشد.';
+    case 106:
+      return '‌callbackUrl نامعتبر می‌باشد. (شروع با http و یا https)';
+    case 113:
+      return 'amount مبلغ تراکنش از سقف میزان تراکنش بیشتر است.';
+  }
+  
+  return '';
+}
+
+function ZD_GetVerfityStatus($statusNumber)
+{
+  switch($statusNumber)
   {
     case -1:
-      return 'اطلاعات ارسال شده ناقص است';
+      return 'در انتظار پرداخت';
     case -2:
-      return 'IP و یا مرچنت کد پذیرنده صحیح نیست';
-    case -3:
-      return 'رقم باید بالای ۲۰ هزار ریال باشد';
-    case -4:
-      return 'سطح تایید پذیرنده پایین تر از سطح نقره ای است';
-    case -11:
-      return 'درخواست مورد نظر یافت نشد';
-    case -21:
-      return 'هیچ نوع عملیات مالی برای این تراکنش یافت نشد';
-    case -22:
-      return 'تراکنش نا موفق می باشد';
-    case -33:
-      return 'رقم تراکنش با رقم پرداخت شده مطابقت ندارد';
-    case -54:
-      return 'درخواست مورد نظر آرشیو شده';
-    case 100:
-      return 'عملیات با موفقیت انجام شد';
-    case 101:
-      return 'عملیات این تراکنش با موفقیت انجام شد ولی قبلا عملیات اعتبار سنجی بر روی این تراکنش انجام شده است';
+      return 'خطای داخلی';
+    case 1:
+      return 'پرداخت شده - تاییدشده';
+    case 2:
+      return 'پرداخت شده - تاییدنشده';
+    case 3:
+      return 'لغوشده توسط کاربر';
+    case 4:
+      return '‌شماره کارت نامعتبر می‌باشد.';
+    case 5:
+      return '‌موجودی حساب کافی نمی‌باشد.';
+    case 6:
+      return 'رمز واردشده اشتباه می‌باشد.';
+    case 7:
+      return 'تعداد درخواست‌ها بیش از حد مجاز می‌باشد.';
+    case 8:
+      return 'تعداد پرداخت اینترنتی روزانه بیش از حد مجاز می‌باشد.';
+    case 9:
+      return 'مبلغ پرداخت اینترنتی روزانه بیش از حد مجاز می‌باشد.';
+    case 10:
+      return '‌صادرکننده‌ی کارت نامعتبر می‌باشد.';
+    case 11:
+      return '‌خطای سوییچ';
+    case 12:
+      return 'کارت قابل دسترسی نمی‌باشد.';
   }
   
   return '';
