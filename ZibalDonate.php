@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Zibal Donate - حمایت مالی 
-Plugin URI: https://docs.zibal.ir/
+Plugin URI: https://zibal.ir/
 Description: افزونه حمایت مالی از وبسایت ها -- برای استفاده تنها کافی است کد زیر را درون بخشی از برگه یا نوشته خود قرار دهید  [ZibalDonate]
 Version: 1.0
 Author:  Yahya Kangi
