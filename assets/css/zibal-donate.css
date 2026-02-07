@@ -1,0 +1,480 @@
+.zibal-donate-wrapper {
+    max-width: 600px;
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    direction: rtl;
+}
+
+.zibal-donate-form {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    padding: 40px;
+    border: 1px solid #e1e5e9;
+    position: relative;
+    overflow: hidden;
+}
+
+.zibal-donate-form::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007cba 0%, #005a87 100%);
+}
+
+.zibal-form-title {
+    text-align: center;
+    color: #2c3e50;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    line-height: 1.3;
+}
+
+.zibal-form-description {
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 16px;
+    margin: 0 0 30px 0;
+    line-height: 1.5;
+}
+
+.zibal-form-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.zibal-form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.zibal-form-label .required {
+    color: #e74c3c;
+    margin-right: 3px;
+}
+
+.zibal-form-input {
+    width: 100%;
+    padding: 15px 18px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    background-color: #fafbfc;
+    box-sizing: border-box;
+}
+
+.zibal-form-input:focus {
+    outline: none;
+    border-color: #007cba;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(0, 124, 186, 0.1);
+    transform: translateY(-1px);
+}
+
+.zibal-form-input:hover {
+    border-color: #c5c9d0;
+}
+
+.zibal-form-input.error {
+    border-color: #e74c3c;
+    background-color: #fdf2f2;
+}
+
+.zibal-form-input.error:focus {
+    border-color: #e74c3c;
+    box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.1);
+}
+
+.zibal-amount-wrapper {
+    position: relative;
+}
+
+.zibal-amount-unit {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #7f8c8d;
+    font-size: 14px;
+    font-weight: 500;
+    pointer-events: none;
+    padding: 0 5px;
+}
+
+.zibal-help-text {
+    display: block;
+    margin-top: 6px;
+    color: #7f8c8d;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.zibal-submit-btn {
+    width: 100%;
+    padding: 18px 24px;
+    background: linear-gradient(135deg, #007cba 0%, #005a87 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    text-transform: none;
+    letter-spacing: 0.5px;
+}
+
+.zibal-submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 124, 186, 0.3);
+    background: linear-gradient(135deg, #0086cc 0%, #006394 100%);
+}
+
+.zibal-submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 15px rgba(0, 124, 186, 0.2);
+}
+
+.zibal-submit-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.zibal-security-note {
+    text-align: center;
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.zibal-security-note small {
+    color: #6c757d;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* پیام‌ها */
+.zibal-messages {
+    margin-bottom: 20px;
+}
+
+.zibal-message {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.zibal-message::before {
+    font-size: 18px;
+}
+
+.zibal-success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.zibal-success::before {
+    content: '✅';
+}
+
+.zibal-error {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.zibal-error::before {
+    content: '❌';
+}
+
+.zibal-warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.zibal-warning::before {
+    content: '⚠️';
+}
+
+/* Loading */
+.zibal-loading {
+    display: none; /* پیش‌فرض مخفی */
+    text-align: center;
+    padding: 40px 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e1e5e9;
+}
+
+.zibal-spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007cba;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: zibal-spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes zibal-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* صفحه Callback */
+.zibal-callback-result {
+    max-width: 500px;
+    margin: 40px auto;
+    text-align: center;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+}
+
+.zibal-callback-result h3 {
+    font-size: 24px;
+    margin: 20px 0 15px 0;
+    font-weight: 700;
+}
+
+.zibal-success-icon,
+.zibal-error-icon,
+.zibal-cancel-icon {
+    font-size: 60px;
+    margin-bottom: 20px;
+    display: block;
+}
+
+.zibal-transaction-details {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: right;
+}
+
+.zibal-transaction-details p {
+    margin: 8px 0;
+    font-size: 14px;
+    color: #495057;
+}
+
+.zibal-actions {
+    margin-top: 30px;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.zibal-btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    display: inline-block;
+    min-width: 120px;
+}
+
+.zibal-btn-primary {
+    background: linear-gradient(135deg, #007cba 0%, #005a87 100%);
+    color: #ffffff;
+}
+
+.zibal-btn-primary:hover {
+    background: linear-gradient(135deg, #0086cc 0%, #006394 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 124, 186, 0.3);
+    color: #ffffff;
+}
+
+.zibal-btn-secondary {
+    background: #6c757d;
+    color: #ffffff;
+}
+
+.zibal-btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+    color: #ffffff;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .zibal-donate-wrapper {
+        margin: 10px;
+    }
+    
+    .zibal-donate-form {
+        padding: 25px 20px;
+    }
+    
+    .zibal-form-title {
+        font-size: 24px;
+    }
+    
+    .zibal-form-input {
+        padding: 12px 15px;
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+    
+    .zibal-submit-btn {
+        padding: 15px 20px;
+        font-size: 16px;
+    }
+    
+    .zibal-callback-result {
+        margin: 20px 10px;
+        padding: 30px 20px;
+    }
+    
+    .zibal-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .zibal-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .zibal-form-title {
+        font-size: 20px;
+    }
+    
+    .zibal-form-description {
+        font-size: 14px;
+    }
+    
+    .zibal-amount-unit {
+        position: static;
+        display: block;
+        margin-top: 5px;
+        text-align: center;
+        transform: none;
+        background: none;
+        padding: 0;
+    }
+    
+    .zibal-amount-wrapper .zibal-form-input {
+        padding-left: 18px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .zibal-donate-form {
+        background: #2c3e50;
+        border-color: #34495e;
+        color: #ecf0f1;
+    }
+    
+    .zibal-form-title {
+        color: #ecf0f1;
+    }
+    
+    .zibal-form-description {
+        color: #bdc3c7;
+    }
+    
+    .zibal-form-label {
+        color: #ecf0f1;
+    }
+    
+    .zibal-form-input {
+        background-color: #34495e;
+        border-color: #4a5f7a;
+        color: #ecf0f1;
+    }
+    
+    .zibal-form-input:focus {
+        background-color: #3c5a78;
+        border-color: #007cba;
+    }
+    
+    .zibal-security-note {
+        background: #34495e;
+        border-color: #4a5f7a;
+    }
+    
+    .zibal-security-note small {
+        color: #bdc3c7;
+    }
+}
+
+/* Accessibility */
+.zibal-form-input:focus,
+.zibal-submit-btn:focus {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .zibal-form-input,
+    .zibal-submit-btn,
+    .zibal-btn {
+        transition: none;
+    }
+    
+    .zibal-spinner {
+        animation: none;
+    }
+    
+    .zibal-submit-btn:hover,
+    .zibal-btn:hover {
+        transform: none;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .zibal-donate-form {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    .zibal-submit-btn {
+        background: #000 !important;
+        color: #fff !important;
+    }
+}
