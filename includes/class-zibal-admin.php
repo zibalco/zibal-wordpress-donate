@@ -1,7 +1,4 @@
 <?php
-/**
- * کلاس مدیریت پنل ادمین
- */
 
 if (!defined('ABSPATH')) {
     exit;
@@ -16,9 +13,7 @@ class ZibalAdmin {
         add_action('wp_ajax_test_zibal_gateways', array($this, 'ajax_test_gateways'));
     }
     
-    /**
-     * اضافه کردن منوی ادمین
-     */
+
     public function add_admin_menu() {
         add_menu_page(
             'تنظیمات زیبال',
@@ -66,12 +61,8 @@ class ZibalAdmin {
             array($this, 'reports_page')
         );
     }
-    
-    /**
-     * مقداردهی اولیه ادمین
-     */
+
     public function admin_init() {
-        // ثبت تنظیمات
         register_setting('zibal_donate_settings', 'ZD_MerchantID');
         register_setting('zibal_donate_settings', 'ZD_IsOK');
         register_setting('zibal_donate_settings', 'ZD_IsError');
@@ -79,7 +70,6 @@ class ZibalAdmin {
         register_setting('zibal_donate_settings', 'ZD_MinAmount');
         register_setting('zibal_donate_settings', 'ZD_MaxAmount');
         
-        // تنظیمات استایل
         register_setting('zibal_style_settings', 'ZD_FormBackgroundColor');
         register_setting('zibal_style_settings', 'ZD_InputBackgroundColor');
         register_setting('zibal_style_settings', 'ZD_InputBorderColor');
@@ -90,9 +80,7 @@ class ZibalAdmin {
         register_setting('zibal_style_settings', 'ZD_TextColor');
     }
     
-    /**
-     * صفحه اصلی ادمین
-     */
+
     public function admin_page() {
         if (isset($_GET['settings-updated'])) {
             add_settings_error('zibal_messages', 'zibal_message', 'تنظیمات با موفقیت ذخیره شد.', 'updated');
@@ -267,7 +255,6 @@ class ZibalAdmin {
                 }
             });
             
-            // تست اتصال به gateway
             $('#test-gateway').on('click', function() {
                 var btn = $(this);
                 var originalText = btn.text();
@@ -376,9 +363,7 @@ class ZibalAdmin {
         <?php
     }
     
-    /**
-     * صفحه تنظیمات استایل
-     */
+
     public function style_page() {
         if (isset($_GET['settings-updated'])) {
             add_settings_error('zibal_style_messages', 'zibal_style_message', 'تنظیمات استایل با موفقیت ذخیره شد.', 'updated');
@@ -386,7 +371,6 @@ class ZibalAdmin {
         
         settings_errors('zibal_style_messages');
         
-        // مقادیر پیش‌فرض
         $form_bg = get_option('ZD_FormBackgroundColor', '#ffffff');
         $input_bg = get_option('ZD_InputBackgroundColor', '#fafbfc');
         $input_border = get_option('ZD_InputBorderColor', '#e1e5e9');
@@ -688,7 +672,6 @@ class ZibalAdmin {
         
         <script>
         jQuery(document).ready(function($) {
-            // به‌روزرسانی پیش‌نمایش
             function updatePreview() {
                 var formBg = $('#ZD_FormBackgroundColor').val();
                 var inputBg = $('#ZD_InputBackgroundColor').val();
@@ -712,7 +695,6 @@ class ZibalAdmin {
                 });
                 previewForm.find('.zibal-submit-btn').css('background', buttonBg);
                 
-                // اضافه کردن استایل hover
                 $('<style id="hover-style">').remove();
                 $('<style id="hover-style">')
                     .prop('type', 'text/css')
@@ -720,14 +702,12 @@ class ZibalAdmin {
                     .appendTo('head');
             }
             
-            // به‌روزرسانی متن رنگ
             $('.color-picker').on('input change', function() {
                 var colorValue = $(this).val();
                 $(this).siblings('.color-text').val(colorValue);
                 updatePreview();
             });
             
-            // بازگردانی به حالت پیش‌فرض
             $('#reset-colors').on('click', function() {
                 if (confirm('آیا مطمئن هستید که می‌خواهید تمام رنگ‌ها را به حالت پیش‌فرض بازگردانید؟')) {
                     $('#ZD_FormBackgroundColor').val('#ffffff');
@@ -747,7 +727,6 @@ class ZibalAdmin {
                 }
             });
             
-            // پیش‌نمایش اولیه
             updatePreview();
         });
         </script>
@@ -798,34 +777,28 @@ class ZibalAdmin {
         <?php
     }
     
-    /**
-     * صفحه تراکنش‌ها
-     */
+
     public function transactions_page() {
         global $wpdb;
         
         $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
         
-        // پیجینیشن
         $per_page = 20;
         $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $offset = ($current_page - 1) * $per_page;
         
-        // فیلتر وضعیت
         $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
         $where_clause = '';
         if ($status_filter) {
             $where_clause = $wpdb->prepare(" WHERE status = %s", $status_filter);
         }
         
-        // دریافت تراکنش‌ها
         $transactions = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM $table_name $where_clause ORDER BY created_at DESC LIMIT %d OFFSET %d",
             $per_page,
             $offset
         ));
         
-        // تعداد کل
         $total_items = $wpdb->get_var("SELECT COUNT(*) FROM $table_name $where_clause");
         $total_pages = ceil($total_items / $per_page);
         
@@ -833,7 +806,6 @@ class ZibalAdmin {
         <div class="wrap">
             <h1>تراکنش‌های پرداخت</h1>
             
-            <!-- فیلتر -->
             <div class="tablenav top">
                 <form method="get">
                     <input type="hidden" name="page" value="zibal-transactions">
@@ -889,7 +861,6 @@ class ZibalAdmin {
                 </tbody>
             </table>
             
-            <!-- پیجینیشن -->
             <?php if ($total_pages > 1): ?>
                 <div class="tablenav bottom">
                     <div class="tablenav-pages">
@@ -917,15 +888,12 @@ class ZibalAdmin {
         <?php
     }
     
-    /**
-     * صفحه گزارشات
-     */
+
     public function reports_page() {
         global $wpdb;
         
         $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
         
-        // آمار کلی
         $stats = $wpdb->get_row("
             SELECT 
                 COUNT(*) as total_transactions,
@@ -935,7 +903,6 @@ class ZibalAdmin {
             FROM $table_name
         ");
         
-        // آمار ماهانه
         $monthly_stats = $wpdb->get_results("
             SELECT 
                 DATE_FORMAT(created_at, '%Y-%m') as month,
@@ -1020,23 +987,18 @@ class ZibalAdmin {
         <?php
     }
     
-    /**
-     * AJAX handler برای تست gateway ها
-     */
+
     public function ajax_test_gateways() {
-        // بررسی nonce
         if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'zibal_test_gateway')) {
             wp_send_json_error('درخواست نامعتبر است.');
             return;
         }
         
-        // بررسی دسترسی
         if (!current_user_can('manage_options')) {
             wp_send_json_error('شما دسترسی لازم را ندارید.');
             return;
         }
         
-        // تست gateway ها
         $api = new ZibalAPI();
         $results = $api->test_gateways();
         

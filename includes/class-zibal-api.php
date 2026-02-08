@@ -1,8 +1,4 @@
 <?php
-/**
- * کلاس API زیبال با امنیت بالا
- */
-
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -25,17 +21,13 @@ class ZibalAPI {
         $this->merchant_id = get_option('ZD_MerchantID');
     }
     
-    /**
-     * ارسال درخواست پرداخت
-     */
+   
     public function request_payment($data) {
-        // اعتبارسنجی داده‌ها
         $validated_data = $this->validate_payment_data($data);
         if (is_wp_error($validated_data)) {
             return $validated_data;
         }
         
-        // آماده‌سازی داده‌های ارسال
         $request_data = array(
             'merchant' => $this->merchant_id,
             'amount' => $validated_data['amount'],
@@ -44,13 +36,11 @@ class ZibalAPI {
             'callbackUrl' => $this->get_callback_url()
         );
         
-        // ثبت تراکنش در دیتابیس
         $transaction_id = $this->save_transaction($validated_data);
         if (!$transaction_id) {
             return new WP_Error('db_error', 'خطا در ذخیره تراکنش');
         }
         
-        // ارسال درخواست به زیبال
         $response = $this->send_request('v1/request', $request_data);
         
         if (is_wp_error($response)) {
@@ -59,13 +49,11 @@ class ZibalAPI {
         }
         
         if ($response['result'] == 100) {
-            // به‌روزرسانی تراکنش با track_id
             $this->update_transaction($transaction_id, array(
                 'track_id' => $response['trackId'],
                 'status' => 'pending'
             ));
             
-            // استفاده از gateway URL مناسب
             $gateway_url = $this->gateway_urls[$this->current_gateway_index] . $response['trackId'];
             
             return array(
@@ -80,21 +68,17 @@ class ZibalAPI {
         }
     }
     
-    /**
-     * تایید پرداخت
-     */
+
     public function verify_payment($track_id) {
         if (empty($track_id)) {
             return new WP_Error('invalid_track_id', 'شناسه تراکنش نامعتبر است');
         }
         
-        // بررسی وجود تراکنش در دیتابیس
         $transaction = $this->get_transaction_by_track_id($track_id);
         if (!$transaction) {
             return new WP_Error('transaction_not_found', 'تراکنش یافت نشد');
         }
         
-        // اگر قبلاً تایید شده
         if ($transaction->status === 'completed') {
             return array(
                 'success' => true,
@@ -117,13 +101,11 @@ class ZibalAPI {
         }
         
         if ($response['result'] == 100) {
-            // به‌روزرسانی تراکنش
             $this->update_transaction($transaction->id, array(
                 'status' => 'completed',
                 'ref_number' => $response['refNumber']
             ));
             
-            // به‌روزرسانی مجموع پرداخت‌ها
             $this->update_total_amount($response['amount']);
             
             return array(
@@ -138,13 +120,10 @@ class ZibalAPI {
         }
     }
     
-    /**
-     * ارسال درخواست امن به API با fallback
-     */
+
     private function send_request($endpoint, $data) {
         $last_error = null;
         
-        // تلاش با هر دو gateway
         foreach ($this->api_base_urls as $index => $base_url) {
             $this->current_gateway_index = $index;
             $url = $base_url . $endpoint;
@@ -163,7 +142,6 @@ class ZibalAPI {
             
             $response = wp_remote_post($url, $args);
             
-            // اگر خطا نبود، پردازش کن
             if (!is_wp_error($response)) {
                 $response_code = wp_remote_retrieve_response_code($response);
                 
@@ -172,7 +150,6 @@ class ZibalAPI {
                     $decoded = json_decode($body, true);
                     
                     if (json_last_error() === JSON_ERROR_NONE) {
-                        // موفقیت - لاگ کردن gateway استفاده شده
                         if ($index > 0) {
                             $this->log_error('Gateway Fallback Success', array(
                                 'endpoint' => $endpoint,
@@ -191,7 +168,6 @@ class ZibalAPI {
                 $last_error = 'Connection Error: ' . $response->get_error_message();
             }
             
-            // لاگ کردن خطا و تلاش با gateway بعدی
             $this->log_error('Gateway Request Failed', array(
                 'endpoint' => $endpoint,
                 'gateway' => $base_url,
@@ -200,7 +176,6 @@ class ZibalAPI {
             ));
         }
         
-        // اگر هیچ gateway جواب نداد
         $this->log_error('All Gateways Failed', array(
             'endpoint' => $endpoint,
             'last_error' => $last_error
@@ -209,18 +184,14 @@ class ZibalAPI {
         return new WP_Error('api_error', 'خطا در ارتباط با درگاه پرداخت. لطفاً مجدداً تلاش کنید.');
     }
     
-    /**
-     * اعتبارسنجی داده‌های پرداخت
-     */
+
     private function validate_payment_data($data) {
         $errors = new WP_Error();
         
-        // بررسی merchant ID
         if (empty($this->merchant_id)) {
             $errors->add('no_merchant', 'کد درگاه پرداخت تنظیم نشده است');
         }
         
-        // بررسی مبلغ
         if (empty($data['amount']) || !is_numeric($data['amount'])) {
             $errors->add('invalid_amount', 'مبلغ وارد شده نامعتبر است');
         } else {
@@ -237,14 +208,12 @@ class ZibalAPI {
             }
         }
         
-        // بررسی نام
         if (empty($data['name'])) {
             $errors->add('no_name', 'نام و نام خانوادگی الزامی است');
         } elseif (strlen($data['name']) < 2) {
             $errors->add('name_too_short', 'نام باید حداقل 2 کاراکتر باشد');
         }
         
-        // بررسی موبایل
         if (!empty($data['mobile']) && !$this->validate_mobile($data['mobile'])) {
             $errors->add('invalid_mobile', 'شماره موبایل نامعتبر است');
         }
@@ -262,31 +231,22 @@ class ZibalAPI {
         );
     }
     
-    /**
-     * اعتبارسنجی شماره موبایل
-     */
+
     private function validate_mobile($mobile) {
         $mobile = preg_replace('/[^0-9]/', '', $mobile);
         return preg_match('/^09[0-9]{9}$/', $mobile);
     }
     
-    /**
-     * پاک‌سازی توضیحات
-     */
+
     private function sanitize_description($description) {
         return wp_strip_all_tags($description);
     }
-    
-    /**
-     * پاک‌سازی شماره موبایل
-     */
+
     private function sanitize_mobile($mobile) {
         return preg_replace('/[^0-9]/', '', $mobile);
     }
     
-    /**
-     * دریافت URL بازگشت
-     */
+
     private function get_callback_url() {
         $callback_page_id = get_option('ZD_CallbackPageID');
         if ($callback_page_id) {
@@ -296,9 +256,7 @@ class ZibalAPI {
         return home_url('/zibal-donate-callback/');
     }
     
-    /**
-     * ذخیره تراکنش در دیتابیس
-     */
+
     private function save_transaction($data) {
         global $wpdb;
         
@@ -326,9 +284,7 @@ class ZibalAPI {
         return $wpdb->insert_id;
     }
     
-    /**
-     * به‌روزرسانی تراکنش
-     */
+
     private function update_transaction($id, $data) {
         global $wpdb;
         
@@ -338,9 +294,7 @@ class ZibalAPI {
         return $wpdb->update($table_name, $data, array('id' => $id));
     }
     
-    /**
-     * به‌روزرسانی وضعیت تراکنش
-     */
+
     private function update_transaction_status($id, $status, $error_message = '') {
         $data = array('status' => $status);
         if ($error_message) {
@@ -350,9 +304,7 @@ class ZibalAPI {
         return $this->update_transaction($id, $data);
     }
     
-    /**
-     * دریافت تراکنش با track_id
-     */
+
     private function get_transaction_by_track_id($track_id) {
         global $wpdb;
         
@@ -363,10 +315,7 @@ class ZibalAPI {
             $track_id
         ));
     }
-    
-    /**
-     * به‌روزرسانی مجموع پرداخت‌ها
-     */
+
     private function update_total_amount($amount) {
         $current_total = get_option('ZD_TotalAmount', 0);
         $new_total = $current_total + $amount;
@@ -376,9 +325,7 @@ class ZibalAPI {
         update_option('ZD_TotalPayment', $current_count + 1);
     }
     
-    /**
-     * دریافت IP کلاینت
-     */
+
     private function get_client_ip() {
         $ip_keys = array('HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP', 'REMOTE_ADDR');
         
@@ -397,11 +344,8 @@ class ZibalAPI {
         return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
     
-    /**
-     * ثبت خطا - فقط در error_log وردپرس
-     */
+
     private function log_error($message, $data = array()) {
-        // فقط در error_log وردپرس ثبت می‌شود
         error_log(sprintf(
             '[Zibal Donate] %s: %s',
             $message,
@@ -409,9 +353,7 @@ class ZibalAPI {
         ));
     }
     
-    /**
-     * تست اتصال به gateway ها
-     */
+
     public function test_gateways() {
         $results = array();
         
@@ -447,9 +389,7 @@ class ZibalAPI {
         return $results;
     }
     
-    /**
-     * دریافت پیام خطا
-     */
+
     private function get_error_message($code) {
         $messages = array(
             100 => 'با موفقیت تایید شد',

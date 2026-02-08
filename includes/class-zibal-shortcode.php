@@ -1,7 +1,4 @@
 <?php
-/**
- * کلاس مدیریت shortcode های زیبال
- */
 
 if (!defined('ABSPATH')) {
     exit;
@@ -20,10 +17,7 @@ class ZibalShortcode {
         add_shortcode('zibal_donate_callback', array($this, 'callback_shortcode'));
     }
     
-    /**
-     * Shortcode فرم پرداخت
-     */
-    public function donate_form_shortcode($atts) {
+unction donate_form_shortcode($atts) {
         $atts = shortcode_atts(array(
             'title' => 'حمایت مالی',
             'description' => '',
@@ -34,7 +28,6 @@ class ZibalShortcode {
             'button_text' => 'پرداخت'
         ), $atts);
         
-        // بررسی تنظیمات پلاگین
         if (empty(get_option('ZD_MerchantID'))) {
             return '<div class="zibal-error">کد درگاه پرداخت تنظیم نشده است.</div>';
         }
@@ -44,9 +37,7 @@ class ZibalShortcode {
         return ob_get_clean();
     }
     
-    /**
-     * Shortcode صفحه callback
-     */
+
     public function callback_shortcode($atts) {
         if (!isset($_GET['status']) || !isset($_GET['trackId'])) {
             return '<div class="zibal-error">اطلاعات تراکنش نامعتبر است.</div>';
@@ -60,15 +51,12 @@ class ZibalShortcode {
         return ob_get_clean();
     }
     
-    /**
-     * رندر فرم پرداخت
-     */
+
     private function render_donate_form($atts) {
         $nonce = wp_create_nonce('zibal_donate_form');
         $unit = get_option('ZD_Unit', 'تومان');
         $required_fields = explode(',', $atts['required_fields']);
         
-        // دریافت رنگ‌های سفارشی
         $form_bg = get_option('ZD_FormBackgroundColor', '#ffffff');
         $input_bg = get_option('ZD_InputBackgroundColor', '#fafbfc');
         $input_border = get_option('ZD_InputBorderColor', '#e1e5e9');
@@ -132,7 +120,7 @@ class ZibalShortcode {
                     </label>
                     <div class="zibal-amount-wrapper">
                         <input 
-                            type="number" 
+                            type="text" 
                             id="zibal-amount" 
                             name="amount" 
                             class="zibal-form-input" 
@@ -233,12 +221,9 @@ class ZibalShortcode {
         <?php
     }
     
-    /**
-     * رندر نتیجه callback
-     */
+
     private function render_callback_result($status, $track_id) {
         if ($status == '2') {
-            // پرداخت موفق - تایید تراکنش
             $api = new ZibalAPI();
             $result = $api->verify_payment($track_id);
             
@@ -248,14 +233,11 @@ class ZibalShortcode {
                 $this->render_success_message($result);
             }
         } else {
-            // پرداخت ناموفق
             $this->render_cancel_message();
         }
     }
     
-    /**
-     * نمایش پیام موفقیت
-     */
+
     private function render_success_message($result) {
         $success_message = get_option('ZD_IsOK', 'پرداخت شما با موفقیت انجام شد.');
         ?>
@@ -280,9 +262,7 @@ class ZibalShortcode {
         <?php
     }
     
-    /**
-     * نمایش پیام خطا
-     */
+
     private function render_error_message($message) {
         $error_message = get_option('ZD_IsError', 'متاسفانه پرداخت انجام نشد.');
         ?>
@@ -304,9 +284,7 @@ class ZibalShortcode {
         <?php
     }
     
-    /**
-     * نمایش پیام لغو
-     */
+
     private function render_cancel_message() {
         ?>
         <div class="zibal-callback-result zibal-cancel">
@@ -326,37 +304,28 @@ class ZibalShortcode {
         <?php
     }
     
-    /**
-     * پردازش AJAX پرداخت
-     */
     public function ajax_process_payment() {
-        // بررسی درخواست AJAX
         if (!defined('DOING_AJAX') || !DOING_AJAX) {
             wp_die('Invalid request');
         }
         
-        // بررسی nonce
         if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'zibal_donate_nonce')) {
             wp_send_json_error('درخواست نامعتبر است.');
             return;
         }
         
-        // بررسی وجود داده‌های فرم
         if (!isset($_POST['form_data'])) {
             wp_send_json_error('داده‌های فرم یافت نشد.');
             return;
         }
         
-        // پردازش داده‌های فرم
         parse_str($_POST['form_data'], $form_data);
         
-        // بررسی nonce فرم
         if (!isset($form_data['zibal_nonce']) || !wp_verify_nonce($form_data['zibal_nonce'], 'zibal_donate_form')) {
             wp_send_json_error('فرم نامعتبر است.');
             return;
         }
         
-        // بررسی فیلدهای اجباری
         $required_fields = array('amount', 'name');
         foreach ($required_fields as $field) {
             if (empty($form_data[$field])) {
@@ -365,18 +334,15 @@ class ZibalShortcode {
             }
         }
         
-        // آماده‌سازی داده‌ها
         $unit = get_option('ZD_Unit', 'تومان');
-        $amount_raw = str_replace(',', '', $form_data['amount']); // حذف کاما
+        $amount_raw = str_replace(',', '', $form_data['amount']); 
         $amount = intval($amount_raw);
         
-        // اعتبارسنجی مبلغ
         if ($amount <= 0) {
             wp_send_json_error('مبلغ وارد شده نامعتبر است.');
             return;
         }
         
-        // تبدیل تومان به ریال
         if ($unit === 'تومان') {
             $amount = $amount * 10;
         }
@@ -389,7 +355,6 @@ class ZibalShortcode {
             'description' => sanitize_textarea_field($form_data['description'] ?? '')
         );
         
-        // ارسال درخواست پرداخت
         $api = new ZibalAPI();
         $result = $api->request_payment($payment_data);
         

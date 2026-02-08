@@ -179,7 +179,6 @@
     gap: 8px;
 }
 
-/* پیام‌ها */
 .zibal-messages {
     margin-bottom: 20px;
 }
@@ -229,9 +228,8 @@
     content: '⚠️';
 }
 
-/* Loading */
 .zibal-loading {
-    display: none; /* پیش‌فرض مخفی */
+    display: none; 
     text-align: center;
     padding: 40px 20px;
     background: #ffffff;
@@ -255,7 +253,6 @@
     100% { transform: rotate(360deg); }
 }
 
-/* صفحه Callback */
 .zibal-callback-result {
     max-width: 500px;
     margin: 40px auto;
@@ -337,7 +334,6 @@
     color: #ffffff;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
     .zibal-donate-wrapper {
         margin: 10px;
@@ -353,7 +349,7 @@
     
     .zibal-form-input {
         padding: 12px 15px;
-        font-size: 16px; /* Prevent zoom on iOS */
+        font-size: 16px;
     }
     
     .zibal-submit-btn {
@@ -401,7 +397,6 @@
     }
 }
 
-/* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
     .zibal-donate-form {
         background: #2c3e50;
@@ -442,7 +437,6 @@
     }
 }
 
-/* Accessibility */
 .zibal-form-input:focus,
 .zibal-submit-btn:focus {
     outline: 2px solid #007cba;
@@ -466,7 +460,6 @@
     }
 }
 
-/* Print Styles */
 @media print {
     .zibal-donate-form {
         box-shadow: none;

@@ -1,7 +1,6 @@
 jQuery(document).ready(function($) {
     'use strict';
     
-    // مدیریت نمایش/مخفی کردن استایل سفارشی
     $('#ZD_UseCustomStyle').change(function() {
         if ($(this).is(':checked')) {
             $('#custom-style-row').slideDown(300);
@@ -10,7 +9,6 @@ jQuery(document).ready(function($) {
         }
     });
     
-    // اعتبارسنجی فرم تنظیمات
     $('form').on('submit', function(e) {
         var merchantId = $('#ZD_MerchantID').val().trim();
         var minAmount = parseInt($('#ZD_MinAmount').val());
@@ -37,7 +35,6 @@ jQuery(document).ready(function($) {
         }
     });
     
-    // تست اتصال به درگاه
     $('#test-connection').on('click', function(e) {
         e.preventDefault();
         
@@ -76,14 +73,12 @@ jQuery(document).ready(function($) {
         });
     });
     
-    // نمایش/مخفی کردن تنظیمات پیشرفته
     $('#show-advanced').on('click', function(e) {
         e.preventDefault();
         $('.advanced-settings').slideToggle();
         $(this).text($(this).text() === 'نمایش تنظیمات پیشرفته' ? 'مخفی کردن تنظیمات پیشرفته' : 'نمایش تنظیمات پیشرفته');
     });
     
-    // اضافه کردن کلاس copied برای استایل
     $('<style>')
         .prop('type', 'text/css')
         .html('.copied { background-color: #00a32a !important; color: white !important; }')
