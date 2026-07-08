@@ -3,9 +3,9 @@
 Plugin Name: Zibal Donate - حمایت مالی امن
 Plugin URI: https://zibal.ir/
 Description: افزونه حمایت مالی امن زیبال
-Version: 2.0
-Author: Abolfazl Abdollahi
-Author URI: https://github.com/abolfazlabdollahii
+Version: 2.1
+Author: Zibal
+Author URI: https://zibal.ir/
 Text Domain: zibal-donate
 */
 
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit('Access denied!');
 }
 
-define('ZIBAL_DONATE_VERSION', '2.0');
+define('ZIBAL_DONATE_VERSION', '2.1');
 define('ZIBAL_DONATE_DIR', plugin_dir_path(__FILE__));
 define('ZIBAL_DONATE_URL', plugin_dir_url(__FILE__));
 define('ZIBAL_DONATE_TABLE', 'zibal_donate_transactions');

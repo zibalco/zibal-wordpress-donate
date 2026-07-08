@@ -31,6 +31,11 @@ class ZibalDonate {
     
     public function init() {
         load_plugin_textdomain('zibal-donate', false, dirname(plugin_basename(__FILE__)) . '/languages');
+
+        if (get_option('ZD_DB_VERSION') !== ZIBAL_DONATE_VERSION) {
+            self::create_tables();
+            update_option('ZD_DB_VERSION', ZIBAL_DONATE_VERSION);
+        }
         
         if (!session_id()) {
             session_start();
@@ -114,6 +119,7 @@ class ZibalDonate {
         self::create_tables();
         self::set_default_options();
         self::create_callback_page();
+        update_option('ZD_DB_VERSION', ZIBAL_DONATE_VERSION);
         
         if (!wp_next_scheduled('zibal_cleanup_reports')) {
             wp_schedule_event(time(), 'daily', 'zibal_cleanup_reports');
@@ -139,7 +145,8 @@ class ZibalDonate {
         
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
-            track_id varchar(100) NOT NULL,
+            track_id varchar(100) DEFAULT NULL,
+            callback_token varchar(64) DEFAULT NULL,
             amount bigint(20) NOT NULL,
             description text,
             name varchar(255),
@@ -147,12 +154,17 @@ class ZibalDonate {
             email varchar(100),
             status varchar(20) DEFAULT 'pending',
             ref_number varchar(100),
+            card_number varchar(32),
+            paid_at varchar(100),
+            zibal_result int DEFAULT NULL,
+            zibal_message text,
             ip_address varchar(45),
             user_agent text,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY track_id (track_id),
+            KEY callback_token (callback_token),
             KEY status (status),
             KEY created_at (created_at)
         ) $charset_collate;";

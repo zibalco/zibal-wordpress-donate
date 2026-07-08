@@ -17,7 +17,7 @@ class ZibalShortcode {
         add_shortcode('zibal_donate_callback', array($this, 'callback_shortcode'));
     }
     
-unction donate_form_shortcode($atts) {
+    public function donate_form_shortcode($atts) {
         $atts = shortcode_atts(array(
             'title' => 'حمایت مالی',
             'description' => '',
@@ -27,6 +27,14 @@ unction donate_form_shortcode($atts) {
             'show_description' => 'true',
             'button_text' => 'پرداخت'
         ), $atts);
+
+        $atts['title'] = sanitize_text_field($atts['title']);
+        $atts['description'] = sanitize_text_field($atts['description']);
+        $atts['min_amount'] = absint($atts['min_amount']);
+        $atts['max_amount'] = absint($atts['max_amount']);
+        $atts['required_fields'] = sanitize_text_field($atts['required_fields']);
+        $atts['show_description'] = sanitize_key($atts['show_description']);
+        $atts['button_text'] = sanitize_text_field($atts['button_text']);
         
         if (empty(get_option('ZD_MerchantID'))) {
             return '<div class="zibal-error">کد درگاه پرداخت تنظیم نشده است.</div>';
@@ -43,19 +51,22 @@ unction donate_form_shortcode($atts) {
             return '<div class="zibal-error">اطلاعات تراکنش نامعتبر است.</div>';
         }
         
-        $status = sanitize_text_field($_GET['status']);
-        $track_id = sanitize_text_field($_GET['trackId']);
+        $status = sanitize_text_field(wp_unslash($_GET['status']));
+        $track_id = sanitize_text_field(wp_unslash($_GET['trackId']));
+        $transaction_id = isset($_GET['zd_payment']) ? absint(wp_unslash($_GET['zd_payment'])) : 0;
+        $callback_token = isset($_GET['zd_token']) ? sanitize_text_field(wp_unslash($_GET['zd_token'])) : '';
         
         ob_start();
-        $this->render_callback_result($status, $track_id);
+        $this->render_callback_result($status, $track_id, $transaction_id, $callback_token);
         return ob_get_clean();
     }
     
 
     private function render_donate_form($atts) {
-        $nonce = wp_create_nonce('zibal_donate_form');
         $unit = get_option('ZD_Unit', 'تومان');
-        $required_fields = explode(',', $atts['required_fields']);
+        $allowed_required_fields = array('amount', 'name', 'mobile', 'email', 'description');
+        $required_fields = array_filter(array_map('sanitize_key', array_map('trim', explode(',', $atts['required_fields']))));
+        $required_fields = array_values(array_intersect($required_fields, $allowed_required_fields));
         
         $form_bg = get_option('ZD_FormBackgroundColor', '#ffffff');
         $input_bg = get_option('ZD_InputBackgroundColor', '#fafbfc');
@@ -116,7 +127,7 @@ unction donate_form_shortcode($atts) {
                 
                 <div class="zibal-form-group">
                     <label class="zibal-form-label" for="zibal-amount">
-                        مبلغ <?php echo in_array('amount', $required_fields) ? '<span class="required">*</span>' : ''; ?>
+                        مبلغ <?php echo in_array('amount', $required_fields, true) ? '<span class="required">*</span>' : ''; ?>
                     </label>
                     <div class="zibal-amount-wrapper">
                         <input 
@@ -126,21 +137,21 @@ unction donate_form_shortcode($atts) {
                             class="zibal-form-input" 
                             min="<?php echo esc_attr($atts['min_amount']); ?>"
                             max="<?php echo esc_attr($atts['max_amount']); ?>"
-                            step="<?php echo $unit === 'تومان' ? '100' : '1000'; ?>"
+                            step="<?php echo esc_attr($unit === 'تومان' ? '100' : '1000'); ?>"
                             placeholder="مبلغ مورد نظر را وارد کنید"
-                            <?php echo in_array('amount', $required_fields) ? 'required' : ''; ?>
+                            <?php echo in_array('amount', $required_fields, true) ? 'required' : ''; ?>
                         >
                         <span class="zibal-amount-unit"><?php echo esc_html($unit); ?></span>
                     </div>
                     <small class="zibal-help-text">
-                        حداقل: <?php echo number_format($atts['min_amount']); ?> ریال - 
-                        حداکثر: <?php echo number_format($atts['max_amount']); ?> ریال
+                        حداقل: <?php echo esc_html(number_format($atts['min_amount'])); ?> ریال -
+                        حداکثر: <?php echo esc_html(number_format($atts['max_amount'])); ?> ریال
                     </small>
                 </div>
                 
                 <div class="zibal-form-group">
                     <label class="zibal-form-label" for="zibal-name">
-                        نام و نام خانوادگی <?php echo in_array('name', $required_fields) ? '<span class="required">*</span>' : ''; ?>
+                        نام و نام خانوادگی <?php echo in_array('name', $required_fields, true) ? '<span class="required">*</span>' : ''; ?>
                     </label>
                     <input 
                         type="text" 
@@ -149,13 +160,13 @@ unction donate_form_shortcode($atts) {
                         class="zibal-form-input"
                         placeholder="نام و نام خانوادگی خود را وارد کنید"
                         maxlength="255"
-                        <?php echo in_array('name', $required_fields) ? 'required' : ''; ?>
+                        <?php echo in_array('name', $required_fields, true) ? 'required' : ''; ?>
                     >
                 </div>
                 
                 <div class="zibal-form-group">
                     <label class="zibal-form-label" for="zibal-mobile">
-                        شماره موبایل <?php echo in_array('mobile', $required_fields) ? '<span class="required">*</span>' : ''; ?>
+                        شماره موبایل <?php echo in_array('mobile', $required_fields, true) ? '<span class="required">*</span>' : ''; ?>
                     </label>
                     <input 
                         type="tel" 
@@ -165,13 +176,13 @@ unction donate_form_shortcode($atts) {
                         placeholder="09xxxxxxxxx"
                         pattern="09[0-9]{9}"
                         maxlength="11"
-                        <?php echo in_array('mobile', $required_fields) ? 'required' : ''; ?>
+                        <?php echo in_array('mobile', $required_fields, true) ? 'required' : ''; ?>
                     >
                 </div>
                 
                 <div class="zibal-form-group">
                     <label class="zibal-form-label" for="zibal-email">
-                        ایمیل <?php echo in_array('email', $required_fields) ? '<span class="required">*</span>' : ''; ?>
+                        ایمیل <?php echo in_array('email', $required_fields, true) ? '<span class="required">*</span>' : ''; ?>
                     </label>
                     <input 
                         type="email" 
@@ -179,14 +190,14 @@ unction donate_form_shortcode($atts) {
                         name="email" 
                         class="zibal-form-input"
                         placeholder="example@domain.com"
-                        <?php echo in_array('email', $required_fields) ? 'required' : ''; ?>
+                        <?php echo in_array('email', $required_fields, true) ? 'required' : ''; ?>
                     >
                 </div>
                 
                 <?php if ($atts['show_description'] === 'true'): ?>
                 <div class="zibal-form-group">
                     <label class="zibal-form-label" for="zibal-description">
-                        توضیحات <?php echo in_array('description', $required_fields) ? '<span class="required">*</span>' : ''; ?>
+                        توضیحات <?php echo in_array('description', $required_fields, true) ? '<span class="required">*</span>' : ''; ?>
                     </label>
                     <textarea 
                         id="zibal-description" 
@@ -195,7 +206,7 @@ unction donate_form_shortcode($atts) {
                         rows="3"
                         placeholder="توضیحات اضافی (اختیاری)"
                         maxlength="500"
-                        <?php echo in_array('description', $required_fields) ? 'required' : ''; ?>
+                        <?php echo in_array('description', $required_fields, true) ? 'required' : ''; ?>
                     ></textarea>
                 </div>
                 <?php endif; ?>
@@ -222,10 +233,10 @@ unction donate_form_shortcode($atts) {
     }
     
 
-    private function render_callback_result($status, $track_id) {
+    private function render_callback_result($status, $track_id, $transaction_id = 0, $callback_token = '') {
         if ($status == '2') {
             $api = new ZibalAPI();
-            $result = $api->verify_payment($track_id);
+            $result = $api->verify_payment($track_id, $transaction_id, $callback_token);
             
             if (is_wp_error($result)) {
                 $this->render_error_message($result->get_error_message());
@@ -233,7 +244,10 @@ unction donate_form_shortcode($atts) {
                 $this->render_success_message($result);
             }
         } else {
-            $this->render_cancel_message();
+            $api = new ZibalAPI();
+            $result = $api->record_callback_failure($track_id, $transaction_id, $callback_token, $status);
+            $message = is_wp_error($result) ? $result->get_error_message() : $result['message'];
+            $this->render_cancel_message($message);
         }
     }
     
@@ -245,16 +259,22 @@ unction donate_form_shortcode($atts) {
             <h3>پرداخت موفق</h3>
             <p><?php echo esc_html($success_message); ?></p>
             
-            <?php if (!empty($result['ref_number'])): ?>
-                <div class="zibal-transaction-details">
-                    <p><strong>شماره مرجع:</strong> <?php echo esc_html($result['ref_number']); ?></p>
-                    <p><strong>مبلغ:</strong> <?php echo number_format($result['amount']); ?> ریال</p>
-                    <p><strong>تاریخ:</strong> <?php echo date('Y/m/d H:i'); ?></p>
-                </div>
-            <?php endif; ?>
+            <div class="zibal-transaction-details">
+                <?php if (!empty($result['ref_number'])): ?>
+                    <p><strong>شماره تراکنش:</strong> <?php echo esc_html($result['ref_number']); ?></p>
+                <?php endif; ?>
+                <?php if (!empty($result['track_id'])): ?>
+                    <p><strong>شناسه پیگیری:</strong> <?php echo esc_html($result['track_id']); ?></p>
+                <?php endif; ?>
+                <p><strong>مبلغ:</strong> <?php echo esc_html(number_format(absint($result['amount'] ?? 0))); ?> ریال</p>
+                <p><strong>زمان تراکنش:</strong> <?php echo esc_html(!empty($result['paid_at']) ? $result['paid_at'] : wp_date('Y/m/d H:i')); ?></p>
+                <?php if (!empty($result['card_number'])): ?>
+                    <p><strong>شماره کارت:</strong> <?php echo esc_html($result['card_number']); ?></p>
+                <?php endif; ?>
+            </div>
             
             <div class="zibal-actions">
-                <a href="<?php echo home_url(); ?>" class="zibal-btn zibal-btn-primary">
+                <a href="<?php echo esc_url(home_url()); ?>" class="zibal-btn zibal-btn-primary">
                     بازگشت به صفحه اصلی
                 </a>
             </div>
@@ -270,13 +290,15 @@ unction donate_form_shortcode($atts) {
             <div class="zibal-error-icon">❌</div>
             <h3>خطا در پرداخت</h3>
             <p><?php echo esc_html($error_message); ?></p>
-            <p class="zibal-error-details"><?php echo esc_html($message); ?></p>
+            <div class="zibal-transaction-details">
+                <p><strong>خطای زیبال:</strong> <?php echo esc_html($message); ?></p>
+            </div>
             
             <div class="zibal-actions">
-                <a href="javascript:history.back()" class="zibal-btn zibal-btn-secondary">
+                <a href="<?php echo esc_url(home_url()); ?>" class="zibal-btn zibal-btn-secondary">
                     تلاش مجدد
                 </a>
-                <a href="<?php echo home_url(); ?>" class="zibal-btn zibal-btn-primary">
+                <a href="<?php echo esc_url(home_url()); ?>" class="zibal-btn zibal-btn-primary">
                     بازگشت به صفحه اصلی
                 </a>
             </div>
@@ -285,18 +307,21 @@ unction donate_form_shortcode($atts) {
     }
     
 
-    private function render_cancel_message() {
+    private function render_cancel_message($message = '') {
+        if (!$message) {
+            $message = 'پرداخت توسط شما لغو شد یا با مشکل مواجه شد.';
+        }
         ?>
         <div class="zibal-callback-result zibal-cancel">
             <div class="zibal-cancel-icon">⚠️</div>
             <h3>پرداخت لغو شد</h3>
-            <p>پرداخت توسط شما لغو شد یا با مشکل مواجه شد.</p>
+            <p><?php echo esc_html($message); ?></p>
             
             <div class="zibal-actions">
-                <a href="javascript:history.back()" class="zibal-btn zibal-btn-secondary">
+                <a href="<?php echo esc_url(home_url()); ?>" class="zibal-btn zibal-btn-secondary">
                     تلاش مجدد
                 </a>
-                <a href="<?php echo home_url(); ?>" class="zibal-btn zibal-btn-primary">
+                <a href="<?php echo esc_url(home_url()); ?>" class="zibal-btn zibal-btn-primary">
                     بازگشت به صفحه اصلی
                 </a>
             </div>
@@ -309,7 +334,8 @@ unction donate_form_shortcode($atts) {
             wp_die('Invalid request');
         }
         
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'zibal_donate_nonce')) {
+        $ajax_nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+        if (!$ajax_nonce || !wp_verify_nonce($ajax_nonce, 'zibal_donate_nonce')) {
             wp_send_json_error('درخواست نامعتبر است.');
             return;
         }
@@ -319,9 +345,11 @@ unction donate_form_shortcode($atts) {
             return;
         }
         
-        parse_str($_POST['form_data'], $form_data);
+        $serialized_form_data = wp_unslash($_POST['form_data']);
+        wp_parse_str($serialized_form_data, $form_data);
         
-        if (!isset($form_data['zibal_nonce']) || !wp_verify_nonce($form_data['zibal_nonce'], 'zibal_donate_form')) {
+        $form_nonce = isset($form_data['zibal_nonce']) ? sanitize_text_field($form_data['zibal_nonce']) : '';
+        if (!$form_nonce || !wp_verify_nonce($form_nonce, 'zibal_donate_form')) {
             wp_send_json_error('فرم نامعتبر است.');
             return;
         }
@@ -335,8 +363,8 @@ unction donate_form_shortcode($atts) {
         }
         
         $unit = get_option('ZD_Unit', 'تومان');
-        $amount_raw = str_replace(',', '', $form_data['amount']); 
-        $amount = intval($amount_raw);
+        $amount_raw = preg_replace('/[^0-9]/', '', (string) $form_data['amount']);
+        $amount = absint($amount_raw);
         
         if ($amount <= 0) {
             wp_send_json_error('مبلغ وارد شده نامعتبر است.');

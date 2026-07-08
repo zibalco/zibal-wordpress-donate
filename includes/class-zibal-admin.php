@@ -9,7 +9,6 @@ class ZibalAdmin {
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'admin_init'));
-        add_action('admin_post_zibal_save_settings', array($this, 'save_settings'));
         add_action('wp_ajax_test_zibal_gateways', array($this, 'ajax_test_gateways'));
     }
     
@@ -24,7 +23,7 @@ class ZibalAdmin {
             'dashicons-money-alt',
             30
         );
-        
+
         add_submenu_page(
             'zibal-donate',
             'تنظیمات',
@@ -33,7 +32,7 @@ class ZibalAdmin {
             'zibal-donate',
             array($this, 'admin_page')
         );
-        
+
         add_submenu_page(
             'zibal-donate',
             'استایل',
@@ -63,21 +62,30 @@ class ZibalAdmin {
     }
 
     public function admin_init() {
-        register_setting('zibal_donate_settings', 'ZD_MerchantID');
-        register_setting('zibal_donate_settings', 'ZD_IsOK');
-        register_setting('zibal_donate_settings', 'ZD_IsError');
-        register_setting('zibal_donate_settings', 'ZD_Unit');
-        register_setting('zibal_donate_settings', 'ZD_MinAmount');
-        register_setting('zibal_donate_settings', 'ZD_MaxAmount');
-        
-        register_setting('zibal_style_settings', 'ZD_FormBackgroundColor');
-        register_setting('zibal_style_settings', 'ZD_InputBackgroundColor');
-        register_setting('zibal_style_settings', 'ZD_InputBorderColor');
-        register_setting('zibal_style_settings', 'ZD_ButtonBackgroundColor');
-        register_setting('zibal_style_settings', 'ZD_ButtonHoverColor');
-        register_setting('zibal_style_settings', 'ZD_TitleColor');
-        register_setting('zibal_style_settings', 'ZD_LabelColor');
-        register_setting('zibal_style_settings', 'ZD_TextColor');
+        register_setting('zibal_donate_settings', 'ZD_MerchantID', array('sanitize_callback' => 'sanitize_text_field'));
+        register_setting('zibal_donate_settings', 'ZD_IsOK', array('sanitize_callback' => 'sanitize_textarea_field'));
+        register_setting('zibal_donate_settings', 'ZD_IsError', array('sanitize_callback' => 'sanitize_textarea_field'));
+        register_setting('zibal_donate_settings', 'ZD_Unit', array('sanitize_callback' => array($this, 'sanitize_unit')));
+        register_setting('zibal_donate_settings', 'ZD_MinAmount', array('sanitize_callback' => array($this, 'sanitize_amount_option')));
+        register_setting('zibal_donate_settings', 'ZD_MaxAmount', array('sanitize_callback' => array($this, 'sanitize_amount_option')));
+
+        register_setting('zibal_style_settings', 'ZD_FormBackgroundColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_InputBackgroundColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_InputBorderColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_ButtonBackgroundColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_ButtonHoverColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_TitleColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_LabelColor', array('sanitize_callback' => 'sanitize_hex_color'));
+        register_setting('zibal_style_settings', 'ZD_TextColor', array('sanitize_callback' => 'sanitize_hex_color'));
+    }
+
+    public function sanitize_unit($value) {
+        $value = sanitize_text_field($value);
+        return in_array($value, array('تومان', 'ریال'), true) ? $value : 'تومان';
+    }
+
+    public function sanitize_amount_option($value) {
+        return max(1000, absint($value));
     }
     
 
@@ -268,7 +276,7 @@ class ZibalAdmin {
                     type: 'POST',
                     data: {
                         action: 'test_zibal_gateways',
-                        nonce: '<?php echo wp_create_nonce('zibal_test_gateway'); ?>'
+                        nonce: '<?php echo esc_js(wp_create_nonce('zibal_test_gateway')); ?>'
                     },
                     success: function(response) {
                         if (response.success) {
@@ -282,13 +290,13 @@ class ZibalAdmin {
                                 var statusText = result.status === 'success' ? '✓ موفق' : '✗ ناموفق';
                                 
                                 html += '<tr>';
-                                html += '<td style="padding: 8px; border: 1px solid #ddd;">' + gateway + '</td>';
+                                html += '<td style="padding: 8px; border: 1px solid #ddd;">' + escapeHtml(gateway) + '</td>';
                                 html += '<td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: ' + statusColor + '; font-weight: bold;">' + statusText + '</td>';
-                                html += '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + result.response_time + '</td>';
+                                html += '<td style="padding: 8px; text-align: center; border: 1px solid #ddd;">' + escapeHtml(result.response_time) + '</td>';
                                 html += '</tr>';
                                 
                                 if (result.error) {
-                                    html += '<tr><td colspan="3" style="padding: 8px; border: 1px solid #ddd; color: #dc3232; font-size: 12px;">خطا: ' + result.error + '</td></tr>';
+                                    html += '<tr><td colspan="3" style="padding: 8px; border: 1px solid #ddd; color: #dc3232; font-size: 12px;">خطا: ' + escapeHtml(result.error) + '</td></tr>';
                                 }
                             });
                             
@@ -298,7 +306,7 @@ class ZibalAdmin {
                             
                             resultsDiv.html(html);
                         } else {
-                            resultsDiv.html('<div class="notice notice-error"><p>خطا در تست اتصال: ' + response.data + '</p></div>');
+                            resultsDiv.empty().append($('<div class="notice notice-error">').append($('<p>').text('خطا در تست اتصال: ' + response.data)));
                         }
                     },
                     error: function() {
@@ -307,8 +315,12 @@ class ZibalAdmin {
                     complete: function() {
                         btn.text(originalText).prop('disabled', false);
                     }
-                });
-            });
+	            });
+
+                function escapeHtml(value) {
+                    return $('<div>').text(value === null || value === undefined ? '' : value).html();
+                }
+	        });
         });
         </script>
         
@@ -787,7 +799,11 @@ class ZibalAdmin {
         $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $offset = ($current_page - 1) * $per_page;
         
-        $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
+        $status_filter = isset($_GET['status']) ? sanitize_key(wp_unslash($_GET['status'])) : '';
+        $allowed_statuses = array('pending', 'completed', 'failed', 'cancelled');
+        if ($status_filter && !in_array($status_filter, $allowed_statuses, true)) {
+            $status_filter = '';
+        }
         $where_clause = '';
         if ($status_filter) {
             $where_clause = $wpdb->prepare(" WHERE status = %s", $status_filter);
@@ -814,6 +830,7 @@ class ZibalAdmin {
                         <option value="pending" <?php selected($status_filter, 'pending'); ?>>در انتظار</option>
                         <option value="completed" <?php selected($status_filter, 'completed'); ?>>تکمیل شده</option>
                         <option value="failed" <?php selected($status_filter, 'failed'); ?>>ناموفق</option>
+                        <option value="cancelled" <?php selected($status_filter, 'cancelled'); ?>>لغو شده</option>
                     </select>
                     <?php submit_button('فیلتر', 'secondary', 'filter', false); ?>
                 </form>
@@ -822,39 +839,62 @@ class ZibalAdmin {
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th>شناسه</th>
-                        <th>نام</th>
+                        <th>شناسه‌ها</th>
+                        <th>کاربر</th>
                         <th>مبلغ</th>
                         <th>وضعیت</th>
-                        <th>شماره مرجع</th>
-                        <th>تاریخ</th>
+                        <th>جزئیات پرداخت</th>
+                        <th>علت / پیام زیبال</th>
+                        <th>زمان‌ها</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($transactions)): ?>
                         <tr>
-                            <td colspan="6" style="text-align: center;">هیچ تراکنشی یافت نشد.</td>
+                            <td colspan="7" style="text-align: center;">هیچ تراکنشی یافت نشد.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($transactions as $transaction): ?>
                             <tr>
-                                <td><?php echo esc_html($transaction->track_id ?: $transaction->id); ?></td>
-                                <td><?php echo esc_html($transaction->name); ?></td>
-                                <td><?php echo number_format($transaction->amount); ?> ریال</td>
+                                <td>
+                                    <strong>داخلی:</strong> <?php echo esc_html($transaction->id); ?><br>
+                                    <strong>Track ID:</strong> <?php echo esc_html(!empty($transaction->track_id) ? $transaction->track_id : '-'); ?><br>
+                                    <strong>Ref:</strong> <?php echo esc_html(!empty($transaction->ref_number) ? $transaction->ref_number : '-'); ?>
+                                </td>
+                                <td>
+                                    <strong><?php echo esc_html(!empty($transaction->name) ? $transaction->name : '-'); ?></strong><br>
+                                    موبایل: <?php echo esc_html(!empty($transaction->mobile) ? $transaction->mobile : '-'); ?><br>
+                                    ایمیل: <?php echo esc_html(!empty($transaction->email) ? $transaction->email : '-'); ?>
+                                </td>
+                                <td><?php echo esc_html(number_format(absint($transaction->amount))); ?> ریال</td>
                                 <td>
                                     <span class="status-<?php echo esc_attr($transaction->status); ?>">
                                         <?php
                                         $statuses = array(
                                             'pending' => 'در انتظار',
                                             'completed' => 'تکمیل شده',
-                                            'failed' => 'ناموفق'
+                                            'failed' => 'ناموفق',
+                                            'cancelled' => 'لغو شده'
                                         );
-                                        echo $statuses[$transaction->status] ?? $transaction->status;
+                                        echo esc_html($statuses[$transaction->status] ?? $transaction->status);
                                         ?>
                                     </span>
+                                    <?php if (isset($transaction->zibal_result) && $transaction->zibal_result !== null): ?>
+                                        <br><small>کد زیبال: <?php echo esc_html($transaction->zibal_result); ?></small>
+                                    <?php endif; ?>
                                 </td>
-                                <td><?php echo esc_html($transaction->ref_number ?: '-'); ?></td>
-                                <td><?php echo esc_html(date('Y/m/d H:i', strtotime($transaction->created_at))); ?></td>
+                                <td>
+                                    کارت: <?php echo esc_html(!empty($transaction->card_number) ? $transaction->card_number : '-'); ?><br>
+                                    زمان پرداخت: <?php echo esc_html(!empty($transaction->paid_at) ? $transaction->paid_at : '-'); ?><br>
+                                    توضیح کاربر: <?php echo esc_html(!empty($transaction->description) ? $transaction->description : '-'); ?>
+                                </td>
+                                <td>
+                                    <?php echo esc_html($this->get_transaction_report_reason($transaction)); ?>
+                                </td>
+                                <td>
+                                    ایجاد: <?php echo esc_html(wp_date('Y/m/d H:i', strtotime($transaction->created_at))); ?><br>
+                                    آخرین تغییر: <?php echo esc_html(wp_date('Y/m/d H:i', strtotime($transaction->updated_at))); ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -873,7 +913,7 @@ class ZibalAdmin {
                             'total' => $total_pages,
                             'current' => $current_page
                         ));
-                        echo $page_links;
+                        echo wp_kses_post($page_links);
                         ?>
                     </div>
                 </div>
@@ -884,8 +924,41 @@ class ZibalAdmin {
         .status-pending { color: #f56e28; }
         .status-completed { color: #46b450; }
         .status-failed { color: #dc3232; }
+        .status-cancelled { color: #8c8f94; }
         </style>
         <?php
+    }
+
+    private function get_transaction_report_reason($transaction) {
+        if (!empty($transaction->zibal_message)) {
+            return $transaction->zibal_message;
+        }
+
+        if ($transaction->status === 'completed') {
+            return 'پرداخت با موفقیت تایید شد';
+        }
+
+        if ($transaction->status === 'cancelled') {
+            return 'کاربر پرداخت را لغو کرد یا از درگاه برگشت ناموفق داشت';
+        }
+
+        if ($transaction->status === 'failed') {
+            if (empty($transaction->track_id)) {
+                return 'درخواست ساخت پرداخت یا ورود به درگاه ناموفق بوده است';
+            }
+
+            return 'پرداخت در مرحله تایید یا درگاه ناموفق بوده است';
+        }
+
+        if ($transaction->status === 'pending') {
+            if (!empty($transaction->track_id)) {
+                return 'کاربر به درگاه منتقل شده اما هنوز callback موفق یا ناموفق ثبت نشده است';
+            }
+
+            return 'رکورد ایجاد شده اما هنوز Track ID از زیبال ثبت نشده است';
+        }
+
+        return 'وضعیت نامشخص';
     }
     
 
@@ -899,7 +972,9 @@ class ZibalAdmin {
                 COUNT(*) as total_transactions,
                 SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END) as total_amount,
                 COUNT(CASE WHEN status = 'completed' THEN 1 END) as successful_transactions,
-                COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_transactions
+                COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_transactions,
+                COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled_transactions,
+                COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_transactions
             FROM $table_name
         ");
         
@@ -922,19 +997,27 @@ class ZibalAdmin {
             <div class="zibal-stats-grid">
                 <div class="zibal-stat-card">
                     <h3>کل تراکنش‌ها</h3>
-                    <p class="stat-number"><?php echo number_format($stats->total_transactions); ?></p>
+                    <p class="stat-number"><?php echo esc_html(number_format(absint($stats->total_transactions))); ?></p>
                 </div>
                 <div class="zibal-stat-card">
                     <h3>تراکنش‌های موفق</h3>
-                    <p class="stat-number success"><?php echo number_format($stats->successful_transactions); ?></p>
+                    <p class="stat-number success"><?php echo esc_html(number_format(absint($stats->successful_transactions))); ?></p>
                 </div>
                 <div class="zibal-stat-card">
                     <h3>تراکنش‌های ناموفق</h3>
-                    <p class="stat-number failed"><?php echo number_format($stats->failed_transactions); ?></p>
+                    <p class="stat-number failed"><?php echo esc_html(number_format(absint($stats->failed_transactions))); ?></p>
+                </div>
+                <div class="zibal-stat-card">
+                    <h3>لغو شده</h3>
+                    <p class="stat-number cancelled"><?php echo esc_html(number_format(absint($stats->cancelled_transactions))); ?></p>
+                </div>
+                <div class="zibal-stat-card">
+                    <h3>در انتظار</h3>
+                    <p class="stat-number pending"><?php echo esc_html(number_format(absint($stats->pending_transactions))); ?></p>
                 </div>
                 <div class="zibal-stat-card">
                     <h3>مجموع درآمد</h3>
-                    <p class="stat-number"><?php echo number_format($stats->total_amount); ?> ریال</p>
+                    <p class="stat-number"><?php echo esc_html(number_format(absint($stats->total_amount))); ?> ریال</p>
                 </div>
             </div>
             
@@ -954,12 +1037,12 @@ class ZibalAdmin {
                         <?php foreach ($monthly_stats as $stat): ?>
                             <tr>
                                 <td><?php echo esc_html($stat->month); ?></td>
-                                <td><?php echo number_format($stat->transactions); ?></td>
-                                <td><?php echo number_format($stat->amount); ?> ریال</td>
+                                <td><?php echo esc_html(number_format(absint($stat->transactions))); ?></td>
+                                <td><?php echo esc_html(number_format(absint($stat->amount))); ?> ریال</td>
                                 <td>
                                     <?php 
                                     $avg = $stat->transactions > 0 ? $stat->amount / $stat->transactions : 0;
-                                    echo number_format($avg); 
+                                    echo esc_html(number_format($avg));
                                     ?> ریال
                                 </td>
                             </tr>
@@ -979,6 +1062,8 @@ class ZibalAdmin {
         
         .stat-number.success { color: #46b450; }
         .stat-number.failed { color: #dc3232; }
+        .stat-number.cancelled { color: #8c8f94; }
+        .stat-number.pending { color: #f56e28; }
         
         .zibal-monthly-stats {
             margin-top: 30px;
@@ -989,7 +1074,8 @@ class ZibalAdmin {
     
 
     public function ajax_test_gateways() {
-        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'zibal_test_gateway')) {
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
+        if (!$nonce || !wp_verify_nonce($nonce, 'zibal_test_gateway')) {
             wp_send_json_error('درخواست نامعتبر است.');
             return;
         }

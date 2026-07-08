@@ -161,7 +161,10 @@ jQuery(document).ready(function($) {
     
     function showError(message) {
         var messages = $('#zibal-messages');
-        messages.html('<div class="zibal-message zibal-error">' + message + '</div>');
+        messages.empty().append($('<div>', {
+            'class': 'zibal-message zibal-error',
+            text: message
+        }));
     }
     
     function resetButton(submitBtn) {
