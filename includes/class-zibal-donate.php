@@ -46,23 +46,28 @@ class ZibalDonate {
         global $wpdb;
         
         $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
-        $total_count = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+        $total_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_name WHERE status IS NULL OR status <> %s",
+            'completed'
+        ));
         
         if ($total_count > 50) {
-            $wpdb->query("
+            $wpdb->query($wpdb->prepare("
                 DELETE FROM $table_name 
-                WHERE id NOT IN (
+                WHERE (status IS NULL OR status <> %s)
+                AND id NOT IN (
                     SELECT id FROM (
                         SELECT id FROM $table_name 
+                        WHERE status IS NULL OR status <> %s
                         ORDER BY created_at DESC 
                         LIMIT 50
                     ) AS keep_records
                 )
-            ");
+            ", 'completed', 'completed'));
             
             $deleted_count = $total_count - 50;
             error_log(sprintf(
-                '[Zibal Donate] Cleanup: %d old records deleted, keeping latest 50 records',
+                '[Zibal Donate] Cleanup: %d old non-completed records deleted; completed payments were preserved',
                 $deleted_count
             ));
         }

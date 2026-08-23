@@ -234,20 +234,17 @@ class ZibalShortcode {
     
 
     private function render_callback_result($status, $track_id, $transaction_id = 0, $callback_token = '') {
-        if ($status == '2') {
-            $api = new ZibalAPI();
-            $result = $api->verify_payment($track_id, $transaction_id, $callback_token);
-            
-            if (is_wp_error($result)) {
+        $api = new ZibalAPI();
+        $result = $api->verify_payment($track_id, $transaction_id, $callback_token);
+
+        if (is_wp_error($result)) {
+            if ($status === '2') {
                 $this->render_error_message($result->get_error_message());
             } else {
-                $this->render_success_message($result);
+                $this->render_cancel_message($result->get_error_message());
             }
         } else {
-            $api = new ZibalAPI();
-            $result = $api->record_callback_failure($track_id, $transaction_id, $callback_token, $status);
-            $message = is_wp_error($result) ? $result->get_error_message() : $result['message'];
-            $this->render_cancel_message($message);
+            $this->render_success_message($result);
         }
     }
     
@@ -266,8 +263,8 @@ class ZibalShortcode {
                 <?php if (!empty($result['track_id'])): ?>
                     <p><strong>شناسه پیگیری:</strong> <?php echo esc_html($result['track_id']); ?></p>
                 <?php endif; ?>
-                <p><strong>مبلغ:</strong> <?php echo esc_html(number_format(absint($result['amount'] ?? 0))); ?> ریال</p>
-                <p><strong>زمان تراکنش:</strong> <?php echo esc_html(!empty($result['paid_at']) ? $result['paid_at'] : wp_date('Y/m/d H:i')); ?></p>
+                <p><strong>مبلغ:</strong> <?php echo esc_html(number_format(absint(isset($result['amount']) ? $result['amount'] : 0))); ?> ریال</p>
+                <p><strong>زمان تراکنش:</strong> <?php echo esc_html(!empty($result['paid_at']) ? $result['paid_at'] : date_i18n('Y/m/d H:i')); ?></p>
                 <?php if (!empty($result['card_number'])): ?>
                     <p><strong>شماره کارت:</strong> <?php echo esc_html($result['card_number']); ?></p>
                 <?php endif; ?>
@@ -346,6 +343,11 @@ class ZibalShortcode {
         }
         
         $serialized_form_data = wp_unslash($_POST['form_data']);
+        if (!is_string($serialized_form_data) || strlen($serialized_form_data) > 4096) {
+            wp_send_json_error('حجم داده‌های فرم بیش از حد مجاز است.');
+            return;
+        }
+
         wp_parse_str($serialized_form_data, $form_data);
         
         $form_nonce = isset($form_data['zibal_nonce']) ? sanitize_text_field($form_data['zibal_nonce']) : '';
@@ -378,9 +380,9 @@ class ZibalShortcode {
         $payment_data = array(
             'amount' => $amount,
             'name' => sanitize_text_field($form_data['name']),
-            'mobile' => sanitize_text_field($form_data['mobile'] ?? ''),
-            'email' => sanitize_email($form_data['email'] ?? ''),
-            'description' => sanitize_textarea_field($form_data['description'] ?? '')
+            'mobile' => sanitize_text_field(isset($form_data['mobile']) ? $form_data['mobile'] : ''),
+            'email' => sanitize_email(isset($form_data['email']) ? $form_data['email'] : ''),
+            'description' => sanitize_textarea_field(isset($form_data['description']) ? $form_data['description'] : '')
         );
         
         $api = new ZibalAPI();

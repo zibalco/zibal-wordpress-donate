@@ -29,9 +29,16 @@ class ZibalAPI {
         }
 
         $validated_data['callback_token'] = wp_generate_password(32, false, false);
+        $validated_data['ip_address'] = $this->get_client_ip();
         $transaction_id = $this->save_transaction($validated_data);
         if (!$transaction_id) {
             return new WP_Error('db_error', 'خطا در ذخیره تراکنش');
+        }
+
+        $rate_limit_result = $this->enforce_request_rate_limit($transaction_id, $validated_data['ip_address']);
+        if (is_wp_error($rate_limit_result)) {
+            $this->delete_transaction($transaction_id);
+            return $rate_limit_result;
         }
 
         $request_data = array(
@@ -99,22 +106,26 @@ class ZibalAPI {
         }
         
         if ($transaction->status === 'completed') {
-            return array(
-                'success' => true,
-                'already_verified' => true,
-                'ref_number' => $transaction->ref_number,
-                'track_id' => $transaction->track_id,
-                'amount' => $transaction->amount,
-                'card_number' => $transaction->card_number,
-                'paid_at' => $transaction->paid_at
-            );
+            return $this->get_completed_transaction_result($transaction, true);
         }
 
-        $lock_key = 'zibal_verify_lock_' . md5($track_id);
-        if (get_transient($lock_key)) {
-            return new WP_Error('verify_in_progress', 'پردازش تراکنش در حال انجام است. لطفاً چند لحظه بعد دوباره بررسی کنید');
+        $claim_result = $this->claim_transaction_for_verification($transaction->id);
+        if (is_wp_error($claim_result)) {
+            return $claim_result;
         }
-        set_transient($lock_key, 1, MINUTE_IN_SECONDS);
+
+        if (!$claim_result) {
+            $current_transaction = $this->get_transaction_by_id($transaction->id);
+            if ($current_transaction && $current_transaction->status === 'completed') {
+                return $this->get_completed_transaction_result($current_transaction, true);
+            }
+
+            if ($current_transaction && $current_transaction->status === 'verifying') {
+                return new WP_Error('verify_in_progress', 'پردازش تراکنش در حال انجام است. لطفاً چند لحظه بعد دوباره بررسی کنید');
+            }
+
+            return new WP_Error('invalid_transaction_state', 'وضعیت فعلی تراکنش اجازه تایید مجدد را نمی‌دهد');
+        }
         
         $verify_data = array(
             'merchant' => $this->merchant_id,
@@ -124,22 +135,19 @@ class ZibalAPI {
         $response = $this->send_request('v1/verify', $verify_data);
         
         if (is_wp_error($response)) {
-            delete_transient($lock_key);
-            $this->update_transaction_status($transaction->id, 'failed', $response->get_error_message());
+            $this->update_transaction_status($transaction->id, 'pending', $response->get_error_message());
             return $response;
         }
         
         if (!isset($response['result'])) {
-            delete_transient($lock_key);
-            $this->update_transaction_status($transaction->id, 'failed', 'Invalid Zibal verify response');
+            $this->update_transaction_status($transaction->id, 'needs_review', 'Invalid Zibal verify response');
             return new WP_Error('verify_error', 'پاسخ تایید پرداخت نامعتبر است');
         }
 
         if ((int) $response['result'] === 100) {
             $verified_amount = isset($response['amount']) ? absint($response['amount']) : 0;
             if ($verified_amount !== absint($transaction->amount)) {
-                delete_transient($lock_key);
-                $this->update_transaction_status($transaction->id, 'failed', 'Amount mismatch', (int) $response['result']);
+                $this->update_transaction_status($transaction->id, 'needs_review', 'Amount mismatch', (int) $response['result']);
                 return new WP_Error('amount_mismatch', 'مبلغ تایید شده با مبلغ تراکنش همخوانی ندارد');
             }
 
@@ -147,7 +155,7 @@ class ZibalAPI {
             $card_number = $this->mask_card_number($this->get_response_field($response, array('cardNumber', 'card_number', 'cardNo')));
             $paid_at = sanitize_text_field($this->get_response_field($response, array('paidAt', 'paid_at', 'paymentDate', 'createdAt'), current_time('mysql')));
             $zibal_message = $this->get_zibal_response_message($response);
-            $this->update_transaction($transaction->id, array(
+            $completion_result = $this->complete_transaction($transaction->id, array(
                 'status' => 'completed',
                 'ref_number' => $ref_number,
                 'card_number' => $card_number,
@@ -155,9 +163,18 @@ class ZibalAPI {
                 'zibal_result' => (int) $response['result'],
                 'zibal_message' => $zibal_message
             ));
+
+            if ($completion_result !== 1) {
+                $current_transaction = $this->get_transaction_by_id($transaction->id);
+                if ($current_transaction && $current_transaction->status === 'completed') {
+                    return $this->get_completed_transaction_result($current_transaction, true);
+                }
+
+                $this->update_transaction_status($transaction->id, 'needs_review', 'Atomic completion update failed');
+                return new WP_Error('completion_conflict', 'ثبت نهایی تراکنش انجام نشد. تراکنش نیازمند بررسی است');
+            }
             
             $this->update_total_amount($verified_amount);
-            delete_transient($lock_key);
             
             return array(
                 'success' => true,
@@ -170,12 +187,10 @@ class ZibalAPI {
                 'zibal_message' => $zibal_message
             );
         } elseif ((int) $response['result'] === 201) {
-            delete_transient($lock_key);
             $error_message = $this->get_zibal_response_message($response);
-            $this->update_transaction_status($transaction->id, 'failed', $error_message, (int) $response['result']);
+            $this->update_transaction_status($transaction->id, 'needs_review', $error_message, (int) $response['result']);
             return new WP_Error('already_verified_remote', $error_message, array('zibal_result' => (int) $response['result']));
         } else {
-            delete_transient($lock_key);
             $error_message = $this->get_zibal_response_message($response);
             $this->update_transaction_status($transaction->id, 'failed', $error_message, (int) $response['result']);
             return new WP_Error('verify_error', $error_message, array('zibal_result' => (int) $response['result']));
@@ -209,12 +224,10 @@ class ZibalAPI {
         }
 
         $message = $this->get_callback_status_message($callback_status);
-        $local_status = in_array($callback_status, array('1', 'cancelled', 'canceled'), true) ? 'cancelled' : 'failed';
-        $this->update_transaction_status($transaction->id, $local_status, $message, is_numeric($callback_status) ? intval($callback_status) : null);
 
         return array(
-            'message' => $message,
-            'status' => $local_status,
+            'message' => $message . ' وضعیت نهایی تنها پس از استعلام از زیبال ثبت می‌شود.',
+            'status' => $transaction->status,
         );
     }
     
@@ -310,10 +323,20 @@ class ZibalAPI {
             $errors->add('no_name', 'نام و نام خانوادگی الزامی است');
         } elseif (strlen($data['name']) < 2) {
             $errors->add('name_too_short', 'نام باید حداقل 2 کاراکتر باشد');
+        } elseif (strlen($data['name']) > 255) {
+            $errors->add('name_too_long', 'نام وارد شده بیش از حد مجاز است');
         }
         
         if (!empty($data['mobile']) && !$this->validate_mobile($data['mobile'])) {
             $errors->add('invalid_mobile', 'شماره موبایل نامعتبر است');
+        }
+
+        if (!empty($data['email']) && strlen($data['email']) > 100) {
+            $errors->add('email_too_long', 'ایمیل وارد شده بیش از حد مجاز است');
+        }
+
+        if (!empty($data['description']) && strlen($data['description']) > 500) {
+            $errors->add('description_too_long', 'توضیحات وارد شده بیش از حد مجاز است');
         }
         
         if ($errors->has_errors()) {
@@ -377,9 +400,9 @@ class ZibalAPI {
             'name' => $data['name'],
             'mobile' => $data['mobile'],
             'email' => $data['email'],
-            'status' => 'pending',
+            'status' => 'requesting',
             'callback_token' => $data['callback_token'],
-            'ip_address' => $this->get_client_ip(),
+            'ip_address' => $data['ip_address'],
             'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '',
             'created_at' => current_time('mysql')
         );
@@ -402,6 +425,47 @@ class ZibalAPI {
         $data['updated_at'] = current_time('mysql');
         
         return $wpdb->update($table_name, $data, array('id' => $id));
+    }
+
+    private function complete_transaction($id, $data) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
+        $data['updated_at'] = current_time('mysql');
+
+        return $wpdb->update(
+            $table_name,
+            $data,
+            array(
+                'id' => absint($id),
+                'status' => 'verifying',
+            )
+        );
+    }
+
+    private function claim_transaction_for_verification($id) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
+        $stale_threshold = gmdate('Y-m-d H:i:s', current_time('timestamp') - (2 * MINUTE_IN_SECONDS));
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE $table_name
+             SET status = %s, updated_at = %s
+             WHERE id = %d
+             AND (status = %s OR (status = %s AND updated_at < %s))",
+            'verifying',
+            current_time('mysql'),
+            absint($id),
+            'pending',
+            'verifying',
+            $stale_threshold
+        ));
+
+        if ($result === false) {
+            return new WP_Error('verification_lock_failed', 'امکان قفل کردن تراکنش برای تایید وجود ندارد');
+        }
+
+        return $result === 1;
     }
     
 
@@ -440,6 +504,82 @@ class ZibalAPI {
         ));
     }
 
+    private function get_completed_transaction_result($transaction, $already_verified = false) {
+        return array(
+            'success' => true,
+            'already_verified' => (bool) $already_verified,
+            'ref_number' => $transaction->ref_number,
+            'track_id' => $transaction->track_id,
+            'amount' => $transaction->amount,
+            'card_number' => $transaction->card_number,
+            'paid_at' => $transaction->paid_at,
+        );
+    }
+
+    private function enforce_request_rate_limit($transaction_id, $ip_address) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
+        $per_ip_limit = absint(apply_filters('zibal_donate_rate_limit_per_ip', 5));
+        $per_ip_window = absint(apply_filters('zibal_donate_rate_limit_per_ip_window', 10 * MINUTE_IN_SECONDS));
+        $global_limit = absint(apply_filters('zibal_donate_rate_limit_global', 20));
+        $global_window = absint(apply_filters('zibal_donate_rate_limit_global_window', MINUTE_IN_SECONDS));
+        $concurrent_limit = absint(apply_filters('zibal_donate_rate_limit_concurrent', 5));
+
+        if ($per_ip_limit > 0 && $per_ip_window > 0) {
+            $ip_threshold = gmdate('Y-m-d H:i:s', current_time('timestamp') - $per_ip_window);
+            $ip_count = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $table_name
+                 WHERE ip_address = %s AND created_at >= %s AND id <= %d",
+                $ip_address,
+                $ip_threshold,
+                absint($transaction_id)
+            ));
+
+            if ($ip_count > $per_ip_limit) {
+                return new WP_Error('rate_limited', 'تعداد درخواست‌های پرداخت بیش از حد مجاز است. لطفاً چند دقیقه دیگر تلاش کنید');
+            }
+        }
+
+        if ($global_limit > 0 && $global_window > 0) {
+            $global_threshold = gmdate('Y-m-d H:i:s', current_time('timestamp') - $global_window);
+            $global_count = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $table_name
+                 WHERE created_at >= %s AND id <= %d",
+                $global_threshold,
+                absint($transaction_id)
+            ));
+
+            if ($global_count > $global_limit) {
+                return new WP_Error('rate_limited', 'سامانه پرداخت موقتاً پرترافیک است. لطفاً چند دقیقه دیگر تلاش کنید');
+            }
+        }
+
+        if ($concurrent_limit > 0) {
+            $concurrent_threshold = gmdate('Y-m-d H:i:s', current_time('timestamp') - (2 * MINUTE_IN_SECONDS));
+            $concurrent_count = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $table_name
+                 WHERE status = %s AND created_at >= %s AND id <= %d",
+                'requesting',
+                $concurrent_threshold,
+                absint($transaction_id)
+            ));
+
+            if ($concurrent_count > $concurrent_limit) {
+                return new WP_Error('rate_limited', 'ظرفیت هم‌زمان درگاه تکمیل است. لطفاً چند دقیقه دیگر تلاش کنید');
+            }
+        }
+
+        return true;
+    }
+
+    private function delete_transaction($id) {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . ZIBAL_DONATE_TABLE;
+        return $wpdb->delete($table_name, array('id' => absint($id)), array('%d'));
+    }
+
     private function update_total_amount($amount) {
         $current_total = absint(get_option('ZD_TotalAmount', 0));
         $new_total = $current_total + absint($amount);
@@ -451,21 +591,15 @@ class ZibalAPI {
     
 
     private function get_client_ip() {
-        $ip_keys = array('HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP', 'REMOTE_ADDR');
-        
-        foreach ($ip_keys as $key) {
-            if (!empty($_SERVER[$key])) {
-                $ip = sanitize_text_field(wp_unslash($_SERVER[$key]));
-                if (strpos($ip, ',') !== false) {
-                    $ip = trim(explode(',', $ip)[0]);
-                }
-                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                    return $ip;
-                }
-            }
+        $remote_address = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '';
+        if (!filter_var($remote_address, FILTER_VALIDATE_IP)) {
+            $remote_address = '0.0.0.0';
         }
-        
-        return isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '0.0.0.0';
+
+        $client_ip = apply_filters('zibal_donate_client_ip', $remote_address, $_SERVER);
+        $client_ip = sanitize_text_field($client_ip);
+
+        return filter_var($client_ip, FILTER_VALIDATE_IP) ? $client_ip : $remote_address;
     }
     
 

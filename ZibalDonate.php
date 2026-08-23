@@ -4,6 +4,7 @@ Plugin Name: Zibal Donate - حمایت مالی امن
 Plugin URI: https://zibal.ir/
 Description: افزونه حمایت مالی امن زیبال
 Version: 2.1
+Requires PHP: 5.6
 Author: Zibal
 Author URI: https://zibal.ir/
 Text Domain: zibal-donate

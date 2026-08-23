@@ -800,7 +800,7 @@ class ZibalAdmin {
         $offset = ($current_page - 1) * $per_page;
         
         $status_filter = isset($_GET['status']) ? sanitize_key(wp_unslash($_GET['status'])) : '';
-        $allowed_statuses = array('pending', 'completed', 'failed', 'cancelled');
+        $allowed_statuses = array('requesting', 'pending', 'verifying', 'needs_review', 'completed', 'failed', 'cancelled');
         if ($status_filter && !in_array($status_filter, $allowed_statuses, true)) {
             $status_filter = '';
         }
@@ -827,7 +827,10 @@ class ZibalAdmin {
                     <input type="hidden" name="page" value="zibal-transactions">
                     <select name="status">
                         <option value="">همه وضعیت‌ها</option>
+                        <option value="requesting" <?php selected($status_filter, 'requesting'); ?>>در حال ساخت پرداخت</option>
                         <option value="pending" <?php selected($status_filter, 'pending'); ?>>در انتظار</option>
+                        <option value="verifying" <?php selected($status_filter, 'verifying'); ?>>در حال تایید</option>
+                        <option value="needs_review" <?php selected($status_filter, 'needs_review'); ?>>نیازمند بررسی</option>
                         <option value="completed" <?php selected($status_filter, 'completed'); ?>>تکمیل شده</option>
                         <option value="failed" <?php selected($status_filter, 'failed'); ?>>ناموفق</option>
                         <option value="cancelled" <?php selected($status_filter, 'cancelled'); ?>>لغو شده</option>
@@ -871,12 +874,15 @@ class ZibalAdmin {
                                     <span class="status-<?php echo esc_attr($transaction->status); ?>">
                                         <?php
                                         $statuses = array(
+                                            'requesting' => 'در حال ساخت پرداخت',
                                             'pending' => 'در انتظار',
+                                            'verifying' => 'در حال تایید',
+                                            'needs_review' => 'نیازمند بررسی',
                                             'completed' => 'تکمیل شده',
                                             'failed' => 'ناموفق',
                                             'cancelled' => 'لغو شده'
                                         );
-                                        echo esc_html($statuses[$transaction->status] ?? $transaction->status);
+                                        echo esc_html(isset($statuses[$transaction->status]) ? $statuses[$transaction->status] : $transaction->status);
                                         ?>
                                     </span>
                                     <?php if (isset($transaction->zibal_result) && $transaction->zibal_result !== null): ?>
@@ -892,8 +898,8 @@ class ZibalAdmin {
                                     <?php echo esc_html($this->get_transaction_report_reason($transaction)); ?>
                                 </td>
                                 <td>
-                                    ایجاد: <?php echo esc_html(wp_date('Y/m/d H:i', strtotime($transaction->created_at))); ?><br>
-                                    آخرین تغییر: <?php echo esc_html(wp_date('Y/m/d H:i', strtotime($transaction->updated_at))); ?>
+                                    ایجاد: <?php echo esc_html(date_i18n('Y/m/d H:i', strtotime($transaction->created_at))); ?><br>
+                                    آخرین تغییر: <?php echo esc_html(date_i18n('Y/m/d H:i', strtotime($transaction->updated_at))); ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -921,7 +927,10 @@ class ZibalAdmin {
         </div>
         
         <style>
+        .status-requesting { color: #2271b1; }
         .status-pending { color: #f56e28; }
+        .status-verifying { color: #2271b1; }
+        .status-needs_review { color: #dba617; }
         .status-completed { color: #46b450; }
         .status-failed { color: #dc3232; }
         .status-cancelled { color: #8c8f94; }
@@ -936,6 +945,10 @@ class ZibalAdmin {
 
         if ($transaction->status === 'completed') {
             return 'پرداخت با موفقیت تایید شد';
+        }
+
+        if ($transaction->status === 'requesting') {
+            return 'درخواست ساخت پرداخت در حال ارسال به زیبال است';
         }
 
         if ($transaction->status === 'cancelled') {
@@ -956,6 +969,14 @@ class ZibalAdmin {
             }
 
             return 'رکورد ایجاد شده اما هنوز Track ID از زیبال ثبت نشده است';
+        }
+
+        if ($transaction->status === 'verifying') {
+            return 'تایید سروربه‌سرور تراکنش در حال انجام است';
+        }
+
+        if ($transaction->status === 'needs_review') {
+            return 'پاسخ زیبال قطعی نبوده یا با اطلاعات محلی نیازمند تطبیق دستی است';
         }
 
         return 'وضعیت نامشخص';
