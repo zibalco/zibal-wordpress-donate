@@ -244,7 +244,8 @@ class ZibalAPI {
                 'timeout' => $this->timeout,
                 'headers' => array(
                     'Content-Type' => 'application/json; charset=utf-8',
-                    'User-Agent' => $this->get_request_user_agent()
+                    'User-Agent' => $this->get_request_user_agent(),
+                    'Referer' => home_url('/')
                 ),
                 'body' => wp_json_encode($data),
                 'sslverify' => true,
@@ -625,7 +626,8 @@ class ZibalAPI {
                 'timeout' => 10,
                 'headers' => array(
                     'Content-Type' => 'application/json; charset=utf-8',
-                    'User-Agent' => $this->get_request_user_agent()
+                    'User-Agent' => $this->get_request_user_agent(),
+                    'Referer' => home_url('/')
                 ),
                 'body' => wp_json_encode(array(
                     'merchant' => 'zibal',
